@@ -2,7 +2,7 @@ import tensorflow as tf
 
 class MogrifierLayer(tf.keras.layers.Layer):
 
-  def __init__(self, dimWeightMatrix = 32, dimHiddenState = 32, dimQK = 32, numMogrifyRounds = 5, units=32, state_size = tf.TensorShape([128, 128])):
+  def __init__(self, dimWeightMatrix = 32, dimHiddenState = 32, dimQK = 32, numMogrifyRounds = 5, units=32, state_size = tf.TensorShape([128, 128]), **kwargs):
       super(MogrifierLayer, self).__init__()
       self.units = units
       self.numRounds = numMogrifyRounds
@@ -10,6 +10,19 @@ class MogrifierLayer(tf.keras.layers.Layer):
       self.dimWeight = dimWeightMatrix
       self.dimHidden = dimHiddenState
       self.dimQK = dimQK
+
+  def get_config(self):
+
+      config = super().get_config().copy()
+      config.update({
+        'units': self.units,
+        'numRounds': self.numRounds,
+        'state_size': self.state_size,
+        'dimWeight': self.dimWeight,
+        'dimHidden': self.dimHidden,
+        'dimQK': self.dimQK
+        })
+      return config
 
   def build(self, input_shape):
 
@@ -36,11 +49,11 @@ class MogrifierLayer(tf.keras.layers.Layer):
                                trainable=True))
         self.list_dense_x.append(tf.keras.layers.Dense(batch_size))
         self.list_dense_h.append(tf.keras.layers.Dense(batch_size))
-
+        
 
       self.h_state = self.add_weight(shape = (batch_size, self.dimHidden),
                                initializer = 'glorot_uniform',
-                               trainable=True)
+                               trainable=True)  
       self.hiddenDenseContract = tf.keras.layers.Dense(embedding)
       self.hiddenDenseExpand = tf.keras.layers.Dense(self.dimHidden)
 
@@ -76,7 +89,7 @@ class MogrifierLayer(tf.keras.layers.Layer):
       else:
         x = tf.math.multiply(2*tf.math.sigmoid(tf.matmul(self.qk_denseContract_list[i](self.qk_list[i]), self.hiddenDenseContract(h))), x)
     return x, h
-
+  
   def call(self, inputs, states):
 
       x_val, h_val = self.mogrify(inputs, states[0], self.numRounds)
@@ -92,14 +105,30 @@ class MogrifierLayer(tf.keras.layers.Layer):
       self.h_state = self.hiddenDenseExpand(h)
       self.c_state = self.cellDenseExpand(c)
 
-
       return o, (self.h_state, self.c_state)
 
 class MogrifierLSTM(tf.keras.layers.Layer):
-  def __init__(self, dimWeightMatrix = 32, dimHiddenState = 32, dimQK = 32, numMogrifyRounds = 5, units=32, state_size = tf.TensorShape([128, 128]), return_sequences = False, return_state = False):
+
+  def __init__(self, dimWeightMatrix = 32, dimHiddenState = 32, dimQK = 32, numMogrifyRounds = 5, units=32, state_size = tf.TensorShape([128, 128]), return_sequences = False, return_state = False, go_backwards = False, **kwargs):
     super(MogrifierLSTM, self).__init__()
     self.lstmCell = MogrifierLayer(dimWeightMatrix = dimWeightMatrix, dimHiddenState = dimHiddenState, dimQK = dimQK, numMogrifyRounds = numMogrifyRounds, units=units, state_size = state_size)
-    self.lstm = tf.keras.layers.RNN(self.lstmCell, return_sequences = return_sequences, return_state= return_state)
+    self.go_backwards = go_backwards
+    self.return_sequences = return_sequences
+    self.return_state = return_state
+    self.lstm = tf.keras.layers.RNN(self.lstmCell, return_sequences = self.return_sequences, return_state= return_state, go_backwards = self.go_backwards)
+  
+  def get_config(self):
+
+      config = super().get_config().copy()
+      config.update({
+        'lstmCell': self.lstmCell,
+        'lstm': self.lstm,
+        'go_backwards': self.go_backwards,
+        'return_sequences': self.return_sequences,
+        'return_state': self.return_state
+        })
+
+      return config
 
   def call(self, input):
     return self.lstm(input)
