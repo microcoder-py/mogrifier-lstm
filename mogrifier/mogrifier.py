@@ -10,7 +10,8 @@ class MogrifierLayer(tf.keras.layers.Layer):
       self.dimWeight = dimWeightMatrix
       self.dimHidden = dimHiddenState
       self.dimQK = dimQK
-
+  
+  #Adding config definition for usage in tf.keras.layers.Bidirectional
   def get_config(self):
 
       config = super().get_config().copy()
@@ -62,7 +63,8 @@ class MogrifierLayer(tf.keras.layers.Layer):
                                trainable=True)
       self.cellDenseContract = tf.keras.layers.Dense(embedding)
       self.cellDenseExpand = tf.keras.layers.Dense(self.dimHidden)
-
+      
+      #Building layers to be used for Mogrification (The Q and K matrices)
       self.qk_list = []
       self.qk_denseContract_list = []
       self.qk_denseExpand_list = []
@@ -82,6 +84,7 @@ class MogrifierLayer(tf.keras.layers.Layer):
   def get_initial_state(self, inputs=None, batch_size=None, dtype=None):
     return [self.h_state, self.c_state]
 
+  #Mogrification function
   def mogrify(self, x, h, rounds):
     for i in range(rounds):
       if (i%2 == 0):
@@ -91,25 +94,32 @@ class MogrifierLayer(tf.keras.layers.Layer):
     return x, h
 
   def call(self, inputs, states):
-
+      
+      #Find values after mogrification
       x_val, h_val = self.mogrify(inputs, states[0], self.numRounds)
 
+      #Standard LSTM update equations
       f = tf.math.sigmoid(tf.matmul(self.list_dense_x[0](self.list_wx[0]), x_val)+ tf.matmul(self.list_dense_h[0](self.list_wh[0]), self.hiddenDenseContract(h_val))+ self.list_b[0])
       i = tf.math.sigmoid(tf.matmul(self.list_dense_x[1](self.list_wx[1]), x_val)+ tf.matmul(self.list_dense_h[1](self.list_wh[1]), self.hiddenDenseContract(h_val))+ self.list_b[1])
       j = tf.math.tanh(tf.matmul(self.list_dense_x[2](self.list_wx[2]), x_val)+ tf.matmul(self.list_dense_h[2](self.list_wh[2]), self.hiddenDenseContract(h_val))+ self.list_b[2])
       o = tf.math.sigmoid(tf.matmul(self.list_dense_x[3](self.list_wx[3]), x_val)+ tf.matmul(self.list_dense_h[3](self.list_wh[3]), self.hiddenDenseContract(h_val))+ self.list_b[3])
 
+      #Update Cell State and Hidden State
       c = tf.math.multiply(f, self.cellDenseContract(states[1])) + tf.math.multiply(i, j)
       h = tf.math.multiply(o, tf.math.tanh(c))
 
       self.h_state = self.hiddenDenseExpand(h)
       self.c_state = self.cellDenseExpand(c)
 
-
+      
       return o, (self.h_state, self.c_state)
 
 class MogrifierLSTM(tf.keras.layers.Layer):
-
+  '''
+  This is a simple wrapper function for making a MogrifierLSTM Layer directly instead of 
+  having to custom define using tf.keras.layers.RNN
+  '''
+  
   def __init__(self, dimWeightMatrix = 32, dimHiddenState = 32, dimQK = 32, numMogrifyRounds = 5, units=32, state_size = tf.TensorShape([128, 128]), return_sequences = False, return_state = False, go_backwards = False, **kwargs):
     super(MogrifierLSTM, self).__init__()
     self.lstmCell = MogrifierLayer(dimWeightMatrix = dimWeightMatrix, dimHiddenState = dimHiddenState, dimQK = dimQK, numMogrifyRounds = numMogrifyRounds, units=units, state_size = state_size)
@@ -118,6 +128,7 @@ class MogrifierLSTM(tf.keras.layers.Layer):
     self.return_state = return_state
     self.lstm = tf.keras.layers.RNN(self.lstmCell, return_sequences = self.return_sequences, return_state= return_state, go_backwards = self.go_backwards)
 
+  #Adding config definition for usage in tf.keras.layers.Bidirectional
   def get_config(self):
 
       config = super().get_config().copy()
