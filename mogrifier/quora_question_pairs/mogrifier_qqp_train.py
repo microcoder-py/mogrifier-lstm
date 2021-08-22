@@ -2,6 +2,7 @@ import sys
 import os
 import time
 
+#Adding root directory to syspath
 path = sys.path[0]
 sys.path.append(path.replace('quora_question_pairs', ''))
 
@@ -9,15 +10,13 @@ import tensorflow as tf
 import mogrifier
 from mogrifier import MogrifierLSTM
 
+#Building Data Pipeline using tf.data
 file_tsv = 'quora_question_pairs/data/quora_duplicate_questions.tsv'
 dataset = tf.data.experimental.CsvDataset(file_tsv, record_defaults = [tf.int32, tf.int32, tf.int32, tf.constant("NOTASENTENCE", tf.string), tf.constant("NOTASENTENCE", tf.string), tf.int32], header = True, field_delim= '\t')
-
-strTime = time.time()
+#Removing unnecessary columns from the dataset
 dataset = dataset.map(lambda id, qid1, qid2, question1, question2, is_duplicate: (question1, question2, is_duplicate))
-totTime = time.time() - strTime
 
-print(f"Time To Remove First Few Rows from Dataset: {int(totTime // 60)}:{int(totTime % 60)}")
-
+#Preprocessing Layers
 vocab_size = 200000
 
 textVec1 = tf.keras.layers.TextVectorization(
@@ -46,10 +45,12 @@ print(f"Time To Adapt TextVec1: {int(totTime // 60)}:{int(totTime % 60)}")
 batch_size = 1024
 shuffle_buffer = 400000
 
+#Shufflinf, batching, and prefetch optimisation for dataset
 dataset = dataset.shuffle(buffer_size = shuffle_buffer).batch(batch_size, drop_remainder = True).prefetch(tf.data.experimental.AUTOTUNE)
 
 print("Built Dataset for execution")
 
+#Defining the model
 class ParaphraseDetector(tf.keras.Model):
   def __init__(self, vocab_size = 100000, textVec1 = None, textVec2 = None, embed_dim = 300, dimWeightMatrix = 16, dimHiddenState = 16, dimQK = 16, numMogrifyRounds = 5, units=32, return_sequences = False, state_size = tf.TensorShape([None, None])):
 
@@ -96,12 +97,14 @@ dimHiddenState = 16
 detector = ParaphraseDetector(textVec1 = textVec1, textVec2 = textVec2, units = 8, vocab_size = vocab_size, embed_dim = 200, dimHiddenState = dimHiddenState, state_size = tf.TensorShape([batch_size, dimHiddenState]))
 print("Built model")
 
+#Defining parameters
 epochs = 20
-
 loss = tf.keras.losses.MeanSquaredError()
 optimizer = tf.keras.optimizers.SGD(learning_rate=1e-3)
 acc = tf.keras.metrics.Accuracy()
 
+#Training 
+#This is being performed explicitly on GPU
 with tf.device('/GPU:0'):
     strTime = time.time()
     for epoch in range(epochs):
@@ -127,4 +130,5 @@ with tf.device('/GPU:0'):
 
     print(f"Time To Finish Epoch {epoch}: {int(totTime // 60)}:{int(totTime % 60)}\n\n")
 
+#Saving the model for inference/evaluation, as is needed
 tf.save_model.save(detector, export_dir = '/quora_question_pairs/model')
