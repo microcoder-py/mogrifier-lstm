@@ -131,4 +131,4 @@ with tf.device('/GPU:0'):
     print(f"Time To Finish Epoch {epoch}: {int(totTime // 60)}:{int(totTime % 60)}\n\n")
 
 #Saving the model for inference/evaluation, as is needed
-detector.save_weights(filepath = 'model_weights/weights.tf', save_format = 'tf')
+detector.save_weights(filepath = 'model/weights.tf', save_format = 'tf')
