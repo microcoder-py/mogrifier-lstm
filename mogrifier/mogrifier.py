@@ -39,26 +39,26 @@ class MogrifierLayer(tf.keras.layers.Layer):
       self.list_dense_h = []
 
       for i in range(4):
-        self.list_wx.append(self.add_weight(shape=(batch_size, self.dimWeight),
+        self.list_wx.append(self.add_weight(name = 'wx'+str(i),shape=(batch_size, self.dimWeight),
                                initializer='glorot_uniform',
                                trainable=True))
-        self.list_wh.append(self.add_weight(shape=(batch_size, self.dimWeight),
+        self.list_wh.append(self.add_weight(name = 'wh'+str(i), shape=(batch_size, self.dimWeight),
                                initializer='glorot_uniform',
                                trainable=True))
-        self.list_b.append(self.add_weight(shape=(embedding,),
+        self.list_b.append(self.add_weight(name = 'b'+str(i), shape=(embedding,),
                                initializer='glorot_uniform',
                                trainable=True))
         self.list_dense_x.append(tf.keras.layers.Dense(batch_size))
         self.list_dense_h.append(tf.keras.layers.Dense(batch_size))
 
 
-      self.h_state = self.add_weight(shape = (batch_size, self.dimHidden),
+      self.h_state = self.add_weight(name = 'h_state', shape = (batch_size, self.dimHidden),
                                initializer = 'glorot_uniform',
                                trainable=True)
       self.hiddenDenseContract = tf.keras.layers.Dense(embedding)
       self.hiddenDenseExpand = tf.keras.layers.Dense(self.dimHidden)
 
-      self.c_state = self.add_weight(shape=(batch_size, self.dimHidden),
+      self.c_state = self.add_weight(name = 'c_state', shape=(batch_size, self.dimHidden),
                                initializer='glorot_uniform',
                                trainable=True)
       self.cellDenseContract = tf.keras.layers.Dense(embedding)
@@ -71,7 +71,7 @@ class MogrifierLayer(tf.keras.layers.Layer):
 
       for i in range(self.numRounds):
           self.qk_list.append(
-              self.add_weight(shape=(batch_size, self.dimQK),
+              self.add_weight(name = 'qk'+str(i),shape=(batch_size, self.dimQK),
                                initializer='glorot_uniform',
                                trainable=True)
           )
